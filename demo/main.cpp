@@ -2873,6 +2873,9 @@ int main(int argc, char* argv[])
 	}
 
 	// opening scene
+	g_scenes.push_back(new DualityTetris("Duality Tetris", true));
+
+	// opening scene not anymore
 	g_scenes.push_back(new PotPourri("Pot Pourri"));
 
 	// soft body scenes

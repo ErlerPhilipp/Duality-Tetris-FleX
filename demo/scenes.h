@@ -60,6 +60,7 @@ public:
 };
 
 
+#include "scenes/duality_tetris.h"
 #include "scenes/adhesion.h"
 #include "scenes/armadilloshower.h"
 #include "scenes/bananas.h"

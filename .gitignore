@@ -6,3 +6,5 @@
 
 # android
 *.apk
+*.tlog
+*.vs/
