@@ -1,3 +1,21 @@
+Duality Tetris by Philipp Erler
+Global Game Jam 2022 Vienna
+
+How to play:
+Use the `run_duality_tetris_cuda` files to launch the demo.
+Move the camera with mouse + WASDF
+Press space bar to start
+Flush the boxes from the table as quickly as possible
+Restart with R
+
+
+Requirements:
+Windows 64 bit
+CUDA (halfway up-to-date graphics driver is sufficient)
+
+
+Based on:
+
 NVIDIA Flex - 1.2.0
 ===================
 
