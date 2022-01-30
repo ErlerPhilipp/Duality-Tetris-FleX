@@ -165,6 +165,9 @@ std::map<NvFlexDistanceFieldId, GpuMesh*> g_fields;
 // flag to request collision shapes be updated
 bool g_shapesChanged = false;
 
+int g_numFrameWon = 0;
+bool g_started = false;
+
 /* Note that this array of colors is altered by demo code, and is also read from global by graphics API impls */
 Colour g_colors[] =
 {
@@ -440,6 +443,7 @@ bool g_step = false;
 bool g_capture = false;
 bool g_showHelp = true;
 bool g_tweakPanel = true;
+bool g_scenePanel = false;
 bool g_fullscreen = false;
 bool g_wireframe = false;
 bool g_debug = false;
@@ -1742,6 +1746,23 @@ int DoUI()
 
 		if (1)
 		{
+			DrawImguiString(x, y, Vec3(1.0f), IMGUI_ALIGN_RIGHT, "Duality Tetris by Philipp Erler"); y -= fontHeight * 2;
+			DrawImguiString(x, y, Vec3(1.0f), IMGUI_ALIGN_RIGHT, "GGJ 2022 Vienna"); y -= fontHeight * 2;
+			if (g_numFrameWon > 0)
+			{
+				DrawImguiString(x, y, Vec3(1.0f), IMGUI_ALIGN_RIGHT, "Won in frame: %d, press 'r' to reset", g_numFrameWon); y -= fontHeight * 2;
+			}
+			else
+			{	
+				if (g_started)
+				{
+					DrawImguiString(x, y, Vec3(1.0f), IMGUI_ALIGN_RIGHT, "Move all boxes from the table"); y -= fontHeight * 2;
+				}
+				else
+				{
+					DrawImguiString(x, y, Vec3(1.0f), IMGUI_ALIGN_RIGHT, "Press 'Space' to start, mouse to look around, WASD to move"); y -= fontHeight * 2;
+				}
+			}
 			DrawImguiString(x, y, Vec3(1.0f), IMGUI_ALIGN_RIGHT, "Frame: %d", g_frame); y -= fontHeight * 2;
 
 			if (!g_ffmpeg)
@@ -1810,143 +1831,146 @@ int DoUI()
 		int uiHeight = g_screenHeight - uiOffset - uiBorder * 3;
 		int uiLeft = uiBorder;
 
-		if (g_tweakPanel)
-			imguiBeginScrollArea("Scene", uiLeft, g_screenHeight - uiBorder - uiOffset, uiWidth, uiOffset, &g_levelScroll);
-		else
-			imguiBeginScrollArea("Scene", uiLeft, uiBorder, uiWidth, g_screenHeight - uiBorder - uiBorder, &g_levelScroll);
-
-		for (int i = 0; i < int(g_scenes.size()); ++i)
+		if (g_scenePanel)
 		{
-			unsigned int color = g_scene == i ? imguiRGBA(255, 151, 61, 255) : imguiRGBA(255, 255, 255, 200);
-			if (imguiItem(g_scenes[i]->GetName(), true, color)) // , i == g_selectedScene))
+			if (g_tweakPanel)
+				imguiBeginScrollArea("Scene", uiLeft, g_screenHeight - uiBorder - uiOffset, uiWidth, uiOffset, &g_levelScroll);
+			else
+				imguiBeginScrollArea("Scene", uiLeft, uiBorder, uiWidth, g_screenHeight - uiBorder - uiBorder, &g_levelScroll);
+
+			for (int i = 0; i < int(g_scenes.size()); ++i)
 			{
-				newScene = i;
+				unsigned int color = g_scene == i ? imguiRGBA(255, 151, 61, 255) : imguiRGBA(255, 255, 255, 200);
+				if (imguiItem(g_scenes[i]->GetName(), true, color)) // , i == g_selectedScene))
+				{
+					newScene = i;
+				}
 			}
-		}
-
-		imguiEndScrollArea();
-
-		if (g_tweakPanel)
-		{
-			static int scroll = 0;
-
-			imguiBeginScrollArea("Options", uiLeft, g_screenHeight - uiBorder - uiHeight - uiOffset - uiBorder, uiWidth, uiHeight, &scroll);
-			imguiSeparatorLine();
-
-			// global options
-			imguiLabel("Global");
-			if (imguiCheck("Emit particles", g_emit))
-				g_emit = !g_emit;
-
-			if (imguiCheck("Pause", g_pause))
-				g_pause = !g_pause;
-
-			imguiSeparatorLine();
-
-			if (imguiCheck("Wireframe", g_wireframe))
-				g_wireframe = !g_wireframe;
-
-			if (imguiCheck("Draw Points", g_drawPoints))
-				g_drawPoints = !g_drawPoints;
-
-			if (imguiCheck("Draw Fluid", g_drawEllipsoids))
-				g_drawEllipsoids = !g_drawEllipsoids;
-
-			if (imguiCheck("Draw Mesh", g_drawMesh))
-			{
-				g_drawMesh = !g_drawMesh;
-				g_drawRopes = !g_drawRopes;
-			}
-
-			if (imguiCheck("Draw Basis", g_drawBases))
-				g_drawBases = !g_drawBases;
-
-			if (imguiCheck("Draw Springs", bool(g_drawSprings != 0)))
-				g_drawSprings = (g_drawSprings) ? 0 : 1;
-
-			if (imguiCheck("Draw Contacts", g_drawContacts))
-				g_drawContacts = !g_drawContacts;
-
-			imguiSeparatorLine();
-
-			// scene options
-			g_scenes[g_scene]->DoGui();
-
-		if (imguiButton("Reset Scene"))
-			g_resetScene = true;
-
-			imguiSeparatorLine();
-
-			float n = float(g_numSubsteps);
-			if (imguiSlider("Num Substeps", &n, 1, 10, 1))
-				g_numSubsteps = int(n);
-
-			n = float(g_params.numIterations);
-			if (imguiSlider("Num Iterations", &n, 1, 20, 1))
-				g_params.numIterations = int(n);
-
-			imguiSeparatorLine();
-			imguiSlider("Gravity X", &g_params.gravity[0], -50.0f, 50.0f, 1.0f);
-			imguiSlider("Gravity Y", &g_params.gravity[1], -50.0f, 50.0f, 1.0f);
-			imguiSlider("Gravity Z", &g_params.gravity[2], -50.0f, 50.0f, 1.0f);
-
-			imguiSeparatorLine();
-			imguiSlider("Radius", &g_params.radius, 0.01f, 0.5f, 0.01f);
-			imguiSlider("Solid Radius", &g_params.solidRestDistance, 0.0f, 0.5f, 0.001f);
-			imguiSlider("Fluid Radius", &g_params.fluidRestDistance, 0.0f, 0.5f, 0.001f);
-
-			// common params
-			imguiSeparatorLine();
-			imguiSlider("Dynamic Friction", &g_params.dynamicFriction, 0.0f, 1.0f, 0.01f);
-			imguiSlider("Static Friction", &g_params.staticFriction, 0.0f, 1.0f, 0.01f);
-			imguiSlider("Particle Friction", &g_params.particleFriction, 0.0f, 1.0f, 0.01f);
-			imguiSlider("Restitution", &g_params.restitution, 0.0f, 1.0f, 0.01f);
-			imguiSlider("SleepThreshold", &g_params.sleepThreshold, 0.0f, 1.0f, 0.01f);
-			imguiSlider("Shock Propagation", &g_params.shockPropagation, 0.0f, 10.0f, 0.01f);
-			imguiSlider("Damping", &g_params.damping, 0.0f, 10.0f, 0.01f);
-			imguiSlider("Dissipation", &g_params.dissipation, 0.0f, 0.01f, 0.0001f);
-			imguiSlider("SOR", &g_params.relaxationFactor, 0.0f, 5.0f, 0.01f);
-
-			imguiSlider("Collision Distance", &g_params.collisionDistance, 0.0f, 0.5f, 0.001f);
-			imguiSlider("Collision Margin", &g_params.shapeCollisionMargin, 0.0f, 5.0f, 0.01f);
-
-			// cloth params
-			imguiSeparatorLine();
-			imguiSlider("Wind", &g_windStrength, -1.0f, 1.0f, 0.01f);
-			imguiSlider("Drag", &g_params.drag, 0.0f, 1.0f, 0.01f);
-			imguiSlider("Lift", &g_params.lift, 0.0f, 1.0f, 0.01f);
-			imguiSeparatorLine();
-
-			// fluid params
-			imguiSlider("Adhesion", &g_params.adhesion, 0.0f, 10.0f, 0.01f);
-			imguiSlider("Cohesion", &g_params.cohesion, 0.0f, 0.2f, 0.0001f);
-			imguiSlider("Surface Tension", &g_params.surfaceTension, 0.0f, 50.0f, 0.01f);
-			imguiSlider("Viscosity", &g_params.viscosity, 0.0f, 120.0f, 0.01f);
-			imguiSlider("Vorticicty Confinement", &g_params.vorticityConfinement, 0.0f, 120.0f, 0.1f);
-			imguiSlider("Solid Pressure", &g_params.solidPressure, 0.0f, 1.0f, 0.01f);
-			imguiSlider("Surface Drag", &g_params.freeSurfaceDrag, 0.0f, 1.0f, 0.01f);
-			imguiSlider("Buoyancy", &g_params.buoyancy, -1.0f, 1.0f, 0.01f);
-
-			imguiSeparatorLine();
-			imguiSlider("Anisotropy Scale", &g_params.anisotropyScale, 0.0f, 30.0f, 0.01f);
-			imguiSlider("Smoothing", &g_params.smoothing, 0.0f, 1.0f, 0.01f);
-
-			// diffuse params
-			imguiSeparatorLine();
-			imguiSlider("Diffuse Threshold", &g_params.diffuseThreshold, 0.0f, 1000.0f, 1.0f);
-			imguiSlider("Diffuse Buoyancy", &g_params.diffuseBuoyancy, 0.0f, 2.0f, 0.01f);
-			imguiSlider("Diffuse Drag", &g_params.diffuseDrag, 0.0f, 2.0f, 0.01f);
-			imguiSlider("Diffuse Scale", &g_diffuseScale, 0.0f, 1.5f, 0.01f);
-			imguiSlider("Diffuse Alpha", &g_diffuseColor.w, 0.0f, 3.0f, 0.01f);
-			imguiSlider("Diffuse Inscatter", &g_diffuseInscatter, 0.0f, 2.0f, 0.01f);
-			imguiSlider("Diffuse Outscatter", &g_diffuseOutscatter, 0.0f, 2.0f, 0.01f);
-			imguiSlider("Diffuse Motion Blur", &g_diffuseMotionScale, 0.0f, 5.0f, 0.1f);
-
-			n = float(g_params.diffuseBallistic);
-			if (imguiSlider("Diffuse Ballistic", &n, 1, 40, 1))
-				g_params.diffuseBallistic = int(n);
 
 			imguiEndScrollArea();
+
+			if (g_tweakPanel)
+			{
+				static int scroll = 0;
+
+				imguiBeginScrollArea("Options", uiLeft, g_screenHeight - uiBorder - uiHeight - uiOffset - uiBorder, uiWidth, uiHeight, &scroll);
+				imguiSeparatorLine();
+
+				// global options
+				imguiLabel("Global");
+				if (imguiCheck("Emit particles", g_emit))
+					g_emit = !g_emit;
+
+				if (imguiCheck("Pause", g_pause))
+					g_pause = !g_pause;
+
+				imguiSeparatorLine();
+
+				if (imguiCheck("Wireframe", g_wireframe))
+					g_wireframe = !g_wireframe;
+
+				if (imguiCheck("Draw Points", g_drawPoints))
+					g_drawPoints = !g_drawPoints;
+
+				if (imguiCheck("Draw Fluid", g_drawEllipsoids))
+					g_drawEllipsoids = !g_drawEllipsoids;
+
+				if (imguiCheck("Draw Mesh", g_drawMesh))
+				{
+					g_drawMesh = !g_drawMesh;
+					g_drawRopes = !g_drawRopes;
+				}
+
+				if (imguiCheck("Draw Basis", g_drawBases))
+					g_drawBases = !g_drawBases;
+
+				if (imguiCheck("Draw Springs", bool(g_drawSprings != 0)))
+					g_drawSprings = (g_drawSprings) ? 0 : 1;
+
+				if (imguiCheck("Draw Contacts", g_drawContacts))
+					g_drawContacts = !g_drawContacts;
+
+				imguiSeparatorLine();
+
+				// scene options
+				g_scenes[g_scene]->DoGui();
+
+				if (imguiButton("Reset Scene"))
+					g_resetScene = true;
+
+				imguiSeparatorLine();
+
+				float n = float(g_numSubsteps);
+				if (imguiSlider("Num Substeps", &n, 1, 10, 1))
+					g_numSubsteps = int(n);
+
+				n = float(g_params.numIterations);
+				if (imguiSlider("Num Iterations", &n, 1, 20, 1))
+					g_params.numIterations = int(n);
+
+				imguiSeparatorLine();
+				imguiSlider("Gravity X", &g_params.gravity[0], -50.0f, 50.0f, 1.0f);
+				imguiSlider("Gravity Y", &g_params.gravity[1], -50.0f, 50.0f, 1.0f);
+				imguiSlider("Gravity Z", &g_params.gravity[2], -50.0f, 50.0f, 1.0f);
+
+				imguiSeparatorLine();
+				imguiSlider("Radius", &g_params.radius, 0.01f, 0.5f, 0.01f);
+				imguiSlider("Solid Radius", &g_params.solidRestDistance, 0.0f, 0.5f, 0.001f);
+				imguiSlider("Fluid Radius", &g_params.fluidRestDistance, 0.0f, 0.5f, 0.001f);
+
+				// common params
+				imguiSeparatorLine();
+				imguiSlider("Dynamic Friction", &g_params.dynamicFriction, 0.0f, 1.0f, 0.01f);
+				imguiSlider("Static Friction", &g_params.staticFriction, 0.0f, 1.0f, 0.01f);
+				imguiSlider("Particle Friction", &g_params.particleFriction, 0.0f, 1.0f, 0.01f);
+				imguiSlider("Restitution", &g_params.restitution, 0.0f, 1.0f, 0.01f);
+				imguiSlider("SleepThreshold", &g_params.sleepThreshold, 0.0f, 1.0f, 0.01f);
+				imguiSlider("Shock Propagation", &g_params.shockPropagation, 0.0f, 10.0f, 0.01f);
+				imguiSlider("Damping", &g_params.damping, 0.0f, 10.0f, 0.01f);
+				imguiSlider("Dissipation", &g_params.dissipation, 0.0f, 0.01f, 0.0001f);
+				imguiSlider("SOR", &g_params.relaxationFactor, 0.0f, 5.0f, 0.01f);
+
+				imguiSlider("Collision Distance", &g_params.collisionDistance, 0.0f, 0.5f, 0.001f);
+				imguiSlider("Collision Margin", &g_params.shapeCollisionMargin, 0.0f, 5.0f, 0.01f);
+
+				// cloth params
+				imguiSeparatorLine();
+				imguiSlider("Wind", &g_windStrength, -1.0f, 1.0f, 0.01f);
+				imguiSlider("Drag", &g_params.drag, 0.0f, 1.0f, 0.01f);
+				imguiSlider("Lift", &g_params.lift, 0.0f, 1.0f, 0.01f);
+				imguiSeparatorLine();
+
+				// fluid params
+				imguiSlider("Adhesion", &g_params.adhesion, 0.0f, 10.0f, 0.01f);
+				imguiSlider("Cohesion", &g_params.cohesion, 0.0f, 0.2f, 0.0001f);
+				imguiSlider("Surface Tension", &g_params.surfaceTension, 0.0f, 50.0f, 0.01f);
+				imguiSlider("Viscosity", &g_params.viscosity, 0.0f, 120.0f, 0.01f);
+				imguiSlider("Vorticicty Confinement", &g_params.vorticityConfinement, 0.0f, 120.0f, 0.1f);
+				imguiSlider("Solid Pressure", &g_params.solidPressure, 0.0f, 1.0f, 0.01f);
+				imguiSlider("Surface Drag", &g_params.freeSurfaceDrag, 0.0f, 1.0f, 0.01f);
+				imguiSlider("Buoyancy", &g_params.buoyancy, -1.0f, 1.0f, 0.01f);
+
+				imguiSeparatorLine();
+				imguiSlider("Anisotropy Scale", &g_params.anisotropyScale, 0.0f, 30.0f, 0.01f);
+				imguiSlider("Smoothing", &g_params.smoothing, 0.0f, 1.0f, 0.01f);
+
+				// diffuse params
+				imguiSeparatorLine();
+				imguiSlider("Diffuse Threshold", &g_params.diffuseThreshold, 0.0f, 1000.0f, 1.0f);
+				imguiSlider("Diffuse Buoyancy", &g_params.diffuseBuoyancy, 0.0f, 2.0f, 0.01f);
+				imguiSlider("Diffuse Drag", &g_params.diffuseDrag, 0.0f, 2.0f, 0.01f);
+				imguiSlider("Diffuse Scale", &g_diffuseScale, 0.0f, 1.5f, 0.01f);
+				imguiSlider("Diffuse Alpha", &g_diffuseColor.w, 0.0f, 3.0f, 0.01f);
+				imguiSlider("Diffuse Inscatter", &g_diffuseInscatter, 0.0f, 2.0f, 0.01f);
+				imguiSlider("Diffuse Outscatter", &g_diffuseOutscatter, 0.0f, 2.0f, 0.01f);
+				imguiSlider("Diffuse Motion Blur", &g_diffuseMotionScale, 0.0f, 5.0f, 0.1f);
+
+				n = float(g_params.diffuseBallistic);
+				if (imguiSlider("Diffuse Ballistic", &n, 1, 40, 1))
+					g_params.diffuseBallistic = int(n);
+
+				imguiEndScrollArea();
+			}
 		}
 		imguiEndFrame();
 
@@ -2285,6 +2309,7 @@ void ReshapeWindow(int width, int height)
 
 void InputArrowKeysDown(int key, int x, int y)
 {
+	return;
 	switch (key)
 	{
 	case SDLK_DOWN:
