@@ -45,6 +45,8 @@
 
 #include <iostream>
 #include <map>
+#include <set>
+#include <queue>
 
 #include "shaders.h"
 #include "imgui.h"
@@ -245,6 +247,8 @@ struct SimBuffers
 };
 
 SimBuffers* g_buffers;
+std::set<unsigned int> g_unusedParticlesUnique;
+std::queue<unsigned int> g_unusedParticles;
 
 void MapBuffers(SimBuffers* buffers)
 {
@@ -534,7 +538,8 @@ vector<Scene*> g_scenes;
 
 struct Emitter
 {
-	Emitter() : mSpeed(0.0f), mEnabled(false), mLeftOver(0.0f), mWidth(8)   {}
+	Emitter() : mSpeed(0.0f), mEnabled(false), mLeftOver(0.0f), mWidth(8), 
+		mPhase(NvFlexMakePhase(0, eNvFlexPhaseSelfCollide | eNvFlexPhaseFluid)) {}
 
 	Vec3 mPos;
 	Vec3 mDir;
@@ -543,6 +548,7 @@ struct Emitter
 	bool mEnabled;
 	float mLeftOver;
 	int mWidth;
+	int mPhase;
 };
 
 vector<Emitter> g_emitters(1);	// first emitter is the camera 'gun'
@@ -1080,8 +1086,8 @@ void UpdateEmitters()
 		size_t e = 0;
 
 		// skip camera emitter when moving forward or things get messy
-		if (g_camSmoothVel.z >= 0.025f)
-			e = 1;
+		//if (g_camSmoothVel.z >= 0.025f)
+		//	e = 1;
 
 		for (; e < g_emitters.size(); ++e)
 		{
@@ -1092,19 +1098,19 @@ void UpdateEmitters()
 			Vec3 emitterRight = g_emitters[e].mRight;
 			Vec3 emitterPos = g_emitters[e].mPos;
 
-
 			float r = g_params.fluidRestDistance;
-			int phase = NvFlexMakePhase(0, eNvFlexPhaseSelfCollide | eNvFlexPhaseFluid);
+			int phase = g_emitters[e].mPhase;
 
 			float numParticles = (g_emitters[e].mSpeed / r)*g_dt;
 
 			// whole number to emit
-			int n = int(numParticles + g_emitters[e].mLeftOver);
+			int n = int(numParticles);
+			//int n = int(numParticles + g_emitters[e].mLeftOver);
 
-			if (n)
-				g_emitters[e].mLeftOver = (numParticles + g_emitters[e].mLeftOver) - n;
-			else
-				g_emitters[e].mLeftOver += numParticles;
+			// if (n)
+			// 	g_emitters[e].mLeftOver = (numParticles + g_emitters[e].mLeftOver) - n;
+			// else
+			// 	g_emitters[e].mLeftOver += numParticles;
 
 			// create a grid of particles (n particles thick)
 			for (int k = 0; k < n; ++k)
@@ -1130,6 +1136,17 @@ void UpdateEmitters()
 							g_buffers->activeIndices.push_back(activeCount);
 
 							activeCount++;
+						}
+						else if (!g_unusedParticles.empty())
+						{	
+							const unsigned int particle_id = g_unusedParticles.front();
+							g_unusedParticles.pop();
+							g_unusedParticlesUnique.erase(g_unusedParticlesUnique.find(particle_id));
+
+							g_buffers->positions[particle_id] = Vec4(emitterPos + offset, 1.0f);
+							g_buffers->velocities[particle_id] = emitterDir * g_emitters[e].mSpeed;
+							g_buffers->phases[particle_id] = phase;
+
 						}
 					}
 				}
@@ -2885,7 +2902,9 @@ int main(int argc, char* argv[])
 	}
 
 	// opening scene
-	g_scenes.push_back(new DualityTetris("Duality Tetris", true));
+	g_scenes.push_back(new DualityTetris("Duality Tetris"));
+
+	g_scenes.push_back(new BallSandcastle("Ball Sandcastle"));
 
 	// opening scene not anymore
 	g_scenes.push_back(new PotPourri("Pot Pourri"));

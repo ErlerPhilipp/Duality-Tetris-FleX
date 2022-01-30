@@ -124,6 +124,7 @@
     </ClInclude>
     <ClInclude Include="..\..\scenes\armadilloshower.h">
     </ClInclude>
+    <ClInclude Include="..\..\scenes\ball_sandcastle.h" />
     <ClInclude Include="..\..\scenes\bananas.h">
     </ClInclude>
     <ClInclude Include="..\..\scenes\bouyancy.h">

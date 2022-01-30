@@ -171,6 +171,9 @@
     <ClInclude Include="..\..\scenes\duality_tetris.h">
       <Filter>demo\scenes</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\scenes\ball_sandcastle.h">
+      <Filter>demo\scenes</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\imgui.cpp">

@@ -61,6 +61,7 @@ public:
 
 
 #include "scenes/duality_tetris.h"
+#include "scenes/ball_sandcastle.h"
 #include "scenes/adhesion.h"
 #include "scenes/armadilloshower.h"
 #include "scenes/bananas.h"
