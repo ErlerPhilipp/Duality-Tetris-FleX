@@ -2602,6 +2602,15 @@ void MousePassiveMotionFunc(int x, int y)
 	g_lasty = y;
 }
 
+void MouseMotionRelativeFunc(unsigned state, int xrel, int yrel)
+{
+	const float kSensitivity = DegToRad(0.1f);
+	const float kMaxDelta = FLT_MAX;
+
+	g_camAngle.x -= Clamp(xrel * kSensitivity, -kMaxDelta, kMaxDelta);
+	g_camAngle.y -= Clamp(yrel * kSensitivity, -kMaxDelta, kMaxDelta);
+}
+
 void MouseMotionFunc(unsigned state, int x, int y)
 {
 	float dx = float(x - g_lastx);
@@ -2693,6 +2702,8 @@ void SDLInit(const char* title)
 		g_screenWidth, g_screenHeight, flags);
 
 	g_windowId = SDL_GetWindowID(g_window);
+
+	SDL_SetRelativeMouseMode(SDL_TRUE);
 }
 
 void SDLMainLoop()
@@ -2728,11 +2739,12 @@ void SDLMainLoop()
 					break;
 
 				case SDL_MOUSEMOTION:
-					if (e.motion.state)
-						MouseMotionFunc(e.motion.state, e.motion.x, e.motion.y);
-					else
-						MousePassiveMotionFunc(e.motion.x, e.motion.y);
-					break;
+					MouseMotionRelativeFunc(e.motion.state, e.motion.xrel, e.motion.yrel);
+					//if (e.motion.state)
+					//	MouseMotionFunc(e.motion.state, e.motion.x, e.motion.y);
+					//else
+					//	MousePassiveMotionFunc(e.motion.x, e.motion.y);
+					//break;
 
 				case SDL_MOUSEBUTTONDOWN:
 				case SDL_MOUSEBUTTONUP:
